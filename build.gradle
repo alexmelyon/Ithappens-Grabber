@@ -10,10 +10,6 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    testImplementation 'org.jetbrains.kotlin:kotlin-test'
-}
-
 test {
     useJUnitPlatform()
 }
@@ -28,4 +24,11 @@ compileTestKotlin {
 
 application {
     mainClassName = 'MainKt'
+}
+
+dependencies {
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation 'org.jsoup:jsoup:1.15.3'
+    implementation 'org.xerial:sqlite-jdbc:3.36.0'
 }
