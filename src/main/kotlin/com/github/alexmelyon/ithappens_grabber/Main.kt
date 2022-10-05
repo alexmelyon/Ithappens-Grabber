@@ -12,6 +12,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
 import java.util.*
+import kotlin.system.exitProcess
 
 val connection = DriverManager.getConnection("jdbc:sqlite:ithappens.sqlite")
 val stemmer = russianStemmer()
@@ -20,10 +21,12 @@ val scope = initScope()
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
         showUsage()
-        System.exit(0)
+        exitProcess(0)
     }
     initSqlite()
-    dropSearchDB()
+    if("--dropsearch" in args) {
+        dropSearchDB()
+    }
     initSearchDB()
 
     runBlocking {
@@ -69,9 +72,10 @@ fun main(args: Array<String>) {
 fun showUsage() {
     println(
         "Usage:\n" +
-                "\t--search %s - Search articles including words\n" +
-                "\t--download  - Download all pages from Wayback Machine\n" +
-                "\t--saved     - Read htmls from 'saved' folder\n"
+                "\t--search %s  - Search articles including words\n" +
+                "\t--download   - Download all pages from Wayback Machine\n" +
+                "\t--saved      - Read htmls from 'saved' folder\n" +
+                "\t--dropsearch - Drop table search\n"
     )
 }
 
@@ -109,7 +113,7 @@ fun search(words: String): List<Pair<Int, Int>> {
                     val doc = rs.getInt(1)
                     val wordCount = rs.getInt(2)
                     val c = documentToCount.getOrDefault(doc, 0)
-                    documentToCount[doc] = c + 1
+                    documentToCount[doc] = c + wordCount
                 }
                 documentToCount
             }
@@ -117,6 +121,7 @@ fun search(words: String): List<Pair<Int, Int>> {
     return documentToCount.toList().sortedByDescending { it.first }
 }
 
+@OptIn(DelicateCoroutinesApi::class)
 fun initScope(): CoroutineScope {
     val numCpus = Runtime.getRuntime().availableProcessors()
     val context = newFixedThreadPoolContext(numCpus, "DownloaderPool")
@@ -141,17 +146,6 @@ fun invertedIndex(story: IthappensStory): List<Triple<String, Int, Int>> {
         .map { it.key.lowercase() to it.value }
     val res = wordCount.map { Triple(it.first.stemmed(), story.storyId, it.second) }
     return res
-
-//    val wordDocumentCounts = mutableMapOf<String, MutableMap<String, Int>>()
-//    val documentCounts: MutableMap<String, Int> = wordDocumentCounts.getOrPut("currentWord") { TreeMap() }
-//    val currentCount = documentCounts.getOrDefault("document", 0)
-//    documentCounts["document"] = currentCount + 1
-//
-//    for ((word, documentToCounts) in wordDocumentCounts) {
-//        for ((doc, count) in documentToCounts) {
-//            println("Word '$word' found '$count' times in document '$doc'")
-//        }
-//    }
 }
 
 fun initSearchDB() {
