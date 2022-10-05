@@ -19,12 +19,12 @@ val stemmer = russianStemmer()
 val scope = initScope()
 
 fun main(args: Array<String>) {
-    if (args.isEmpty()) {
+    if (args.isEmpty() || "-h" in args || "--help" in args) {
         showUsage()
-        exitProcess(0)
+        return
     }
     initSqlite()
-    if("--dropsearch" in args) {
+    if ("--dropsearch" in args) {
         dropSearchDB()
     }
     initSearchDB()
@@ -63,7 +63,15 @@ fun main(args: Array<String>) {
         val words = args.toList()
             .subList(args.indexOf("--search"), args.size)
             .joinToString(" ")
-        search(words)
+        val stories = searchStories(words)
+        for (storyId in stories) {
+            val story = getStory(storyId)
+            story ?: continue
+            println("${story.storyId} ${story.title}")
+            println("${Date(story.datetime)} ${story.tags} ${story.likes}")
+            println(story.text)
+            println()
+        }
     }
 
     connection.close()
@@ -101,7 +109,7 @@ fun <R> time(block: () -> R): R {
     return res
 }
 
-fun search(words: String): List<Pair<Int, Int>> {
+fun searchStories(words: String): List<Int> {
     val documentToCount = mutableMapOf<Int, Int>()
     words.split(" ")
         .filter { it.isNotBlank() }
@@ -118,7 +126,8 @@ fun search(words: String): List<Pair<Int, Int>> {
                 documentToCount
             }
         }
-    return documentToCount.toList().sortedByDescending { it.first }
+    val sorted = documentToCount.toList().sortedByDescending { it.first }
+    return sorted.map { it.first }
 }
 
 @OptIn(DelicateCoroutinesApi::class)
@@ -189,18 +198,26 @@ fun getStory(storyId: Int): IthappensStory? {
     val stm = connection.createStatement().apply {
         execute("SELECT * FROM stories WHERE storyId=$storyId")
     }
-    val story = with(stm) {
-        val rs = resultSet
-        IthappensStory(
-            rs.getInt(1),
-            rs.getString(2),
-            rs.getLong(3),
-            rs.getString(4).split(", "),
-            rs.getString(5),
-            rs.getInt(6)
-        )
+    val story = try {
+        with(stm) {
+            resultSet.use { rs ->
+                IthappensStory(
+                    rs.getInt(1),
+                    rs.getString(2),
+                    rs.getLong(3),
+                    rs.getString(4).split(", "),
+                    rs.getString(5),
+                    rs.getInt(6)
+                )
+            }
+        }
+    } catch (t: Throwable) {
+        Exception("Something goes wrong", t)
+            .printStackTrace()
+        null
+    } finally {
+        stm.close()
     }
-    stm.close()
     return story
 }
 
